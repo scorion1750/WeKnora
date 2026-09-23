@@ -1,3 +1,4 @@
+
 <template>
   <div class="login-layout">
     <div class="animated-bg">
@@ -97,7 +98,7 @@
 
     <!-- Logo - Top Left -->
     <a href="https://github.com/Tencent/WeKnora" target="_blank" class="header-logo" :title="$t('common.github')">
-      <img src="@/assets/img/weknora.png" alt="WeKnora" class="logo-image" />
+      <img src="@/assets/img/weknora.png" alt="RAG" class="logo-image" />
     </a>
 
     <!-- Header Links - Top Right -->
@@ -340,6 +341,7 @@
 </template>
 
 <script setup lang="ts">
+import { PLATFORM_HOME } from '@/business/constants'
 import { ref, reactive, nextTick, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
@@ -596,7 +598,7 @@ const persistLoginResponse = async (response: any, skipRedirect = false) => {
   await authStore.refreshFromAuthMe()
   await nextTick()
   if (skipRedirect) return
-  router.replace(authStore.hasValidTenant ? '/platform/knowledge-bases' : '/onboarding/workspace')
+  router.replace(authStore.hasValidTenant ? PLATFORM_HOME : '/onboarding/workspace')
 }
 
 const getBackendOIDCRedirectURI = () => `${window.location.origin}/api/v1/auth/oidc/callback`
@@ -665,7 +667,7 @@ const acceptAndEnter = async (token: string) => {
   } finally {
     loading.value = false
     await nextTick()
-    router.replace('/platform/knowledge-bases')
+    router.replace(PLATFORM_HOME)
   }
 }
 
@@ -810,7 +812,7 @@ onMounted(async () => {
   }
 
   if (authStore.isLoggedIn) {
-    router.replace('/platform/knowledge-bases')
+    router.replace(PLATFORM_HOME)
     return
   }
 
@@ -842,7 +844,7 @@ onMounted(async () => {
   min-height: 100%;
   overflow: hidden;
   position: relative;
-  background: linear-gradient(225deg, #022c22 0%, #064e3b 15%, #065f46 25%, #047857 38%, #059669 50%, #07C05F 65%, #10B981 78%, #34D399 90%, #6EE7B7 100%);
+  background: linear-gradient(225deg, #0b1f4d 0%, #102a6b 15%, #163a8c 28%, #1a4bb0 42%, #0052d9 58%, #266eff 72%, #528eff 86%, #8babff 100%);
 
   &::before {
     content: '';

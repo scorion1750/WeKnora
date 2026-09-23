@@ -2,11 +2,20 @@ import { reactive, ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import i18n from '@/i18n'
 import { useAuthStore } from '@/stores/auth'
+import { useBusinessMenuStore } from '@/stores/businessMenu'
 import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
 import type { DeploymentCapabilityKey } from '@/config/deploymentCapabilities'
 import type { QuestionOrigin } from '@/utils/questionOrigin'
 
 type MenuChild = Record<string, any>
+
+interface MenuSubItem {
+  title: string
+  titleKey: string
+  path: string
+  icon?: string
+  requiredCapability?: DeploymentCapabilityKey
+}
 
 interface MenuItem {
   title: string
@@ -15,6 +24,7 @@ interface MenuItem {
   path: string
   childrenPath?: string
   children?: MenuChild[]
+  subMenus?: MenuSubItem[]
   requiredCapability?: DeploymentCapabilityKey
 }
 
@@ -22,19 +32,24 @@ const createMenuChildren = () => reactive<MenuChild[]>([])
 
 export const useMenuStore = defineStore('menuStore', () => {
   const menuArr = reactive<MenuItem[]>([
+    { title: '', titleKey: 'menu.bizHome', icon: 'zhishiku', path: 'biz' },
+    { title: '', titleKey: 'menu.bizOffice', icon: 'file-add', path: 'biz/office' },
+    { title: '', titleKey: 'menu.bizProject', icon: 'organization', path: 'biz/projects' },
+    { title: '', titleKey: 'menu.bizIntegration', icon: 'integration', path: 'biz/integration' },
     {
       title: '',
-      titleKey: 'menu.newChat',
+      titleKey: 'menu.rag',
       icon: 'prefixIcon',
-      path: 'creatChat',
+      path: 'rag',
       childrenPath: 'chat',
-      children: createMenuChildren()
+      children: createMenuChildren(),
+      subMenus: [
+        { title: '', titleKey: 'menu.knowledgeBase', path: 'knowledge-bases', icon: 'zhishiku' },
+        { title: '', titleKey: 'menu.newChat', path: 'creatChat', icon: 'prefixIcon' },
+        { title: '', titleKey: 'menu.agents', path: 'agents', icon: 'agent', requiredCapability: 'agents' },
+        { title: '', titleKey: 'menu.artifacts', path: 'artifacts', icon: 'artifact', requiredCapability: 'settings.sandbox' },
+      ],
     },
-    { title: '', titleKey: 'menu.knowledgeBase', icon: 'zhishiku', path: 'knowledge-bases' },
-    // Artifacts only exist where skills run in a sandbox.
-    { title: '', titleKey: 'menu.artifacts', icon: 'artifact', path: 'artifacts', requiredCapability: 'settings.sandbox' },
-    { title: '', titleKey: 'menu.agents', icon: 'agent', path: 'agents', requiredCapability: 'agents' },
-    { title: '', titleKey: 'menu.organizations', icon: 'organization', path: 'organizations', requiredCapability: 'organizations' },
     { title: '', titleKey: 'menu.settings', icon: 'setting', path: 'settings' },
     { title: '', titleKey: 'menu.logout', icon: 'logout', path: 'logout' }
   ])
@@ -53,6 +68,9 @@ export const useMenuStore = defineStore('menuStore', () => {
       if (item.titleKey) {
         item.title = i18n.global.t(item.titleKey)
       }
+      item.subMenus?.forEach(sub => {
+        sub.title = i18n.global.t(sub.titleKey)
+      })
     })
   }
 
@@ -67,12 +85,10 @@ export const useMenuStore = defineStore('menuStore', () => {
 
   const liteHiddenPaths = new Set(['logout', 'organizations'])
 
-  // 共享空间 (organizations) 仅对当前空间的 admin / owner 暴露入口。
-  // viewer / contributor 即便在共享空间里拥有资源，也无需自行管理共享关系，
-  // 入口在侧栏只会徒增噪音；后端 RBAC 才是权限的最终来源（见 middleware/rbac.go）。
   const visibleMenuArr = computed(() => {
     const authStore = useAuthStore()
     const deploymentCapabilities = useDeploymentCapabilitiesStore()
+    const businessMenu = useBusinessMenuStore()
     return menuArr.filter(item => {
       if (authStore.isLiteMode && liteHiddenPaths.has(item.path)) {
         return false
@@ -83,11 +99,14 @@ export const useMenuStore = defineStore('menuStore', () => {
       if (!deploymentCapabilities.isSupported(item.requiredCapability)) {
         return false
       }
+      if (item.path.startsWith('biz') && !businessMenu.isPathEnabled(item.path)) {
+        return false
+      }
       return true
     })
   })
 
-  const chatMenuIndex = menuArr.findIndex(item => item.path === 'creatChat')
+  const chatMenuIndex = menuArr.findIndex(item => item.path === 'rag' || item.path === 'creatChat')
 
   const clearMenuArr = () => {
     const chatMenu = menuArr[chatMenuIndex]

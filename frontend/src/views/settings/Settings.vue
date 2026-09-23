@@ -1,3 +1,4 @@
+
 <template>
   <SettingsModalShell :visible="visible" :title="$t('general.settings')" @close="modalShell.requestClose">
     <template #nav>
@@ -104,6 +105,11 @@
           <ChatHistorySettings />
         </div>
 
+        <!-- 业务侧栏菜单 -->
+        <div v-if="currentSection === 'business-menus'" class="section">
+          <BusinessMenuSettings />
+        </div>
+
         <!-- 长期记忆（空间级开关） -->
         <div v-if="currentSection === 'memory'" class="section">
           <MemoryWorkspaceSettings />
@@ -200,6 +206,7 @@
 </template>
 
 <script setup lang="ts">
+import { PLATFORM_HOME } from '@/business/constants'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { LocationQueryRaw } from 'vue-router'
@@ -221,6 +228,7 @@ import OllamaSettings from './OllamaSettings.vue'
 import McpSettings from './McpSettings.vue'
 import WebSearchSettings from './WebSearchSettings.vue'
 import ChatHistorySettings from './ChatHistorySettings.vue'
+import BusinessMenuSettings from './BusinessMenuSettings.vue'
 import MemorySettings from './MemorySettings.vue'
 import EnvVarSettings from './EnvVarSettings.vue'
 import MemoryWorkspaceSettings from './MemoryWorkspaceSettings.vue'
@@ -351,10 +359,11 @@ const navItems = computed(() => {
   const all: NavItem[] = [
     { key: 'general', icon: 'setting', label: t('general.title') },
     { key: 'ollama', icon: 'server', label: 'Ollama' },
-    { key: 'weknoracloud', icon: '', label: 'WeKnora Cloud' },
+    { key: 'weknoracloud', icon: '', label: 'RAG Cloud' },
     { key: 'models', icon: 'control-platform', label: t('settings.modelManagement') },
     { key: 'websearch', icon: 'search', label: t('settings.webSearchConfig') },
     { key: 'chathistory', icon: 'chat', label: t('chatHistorySettings.title') },
+    { key: 'business-menus', icon: 'view-list', label: t('business.menuSettings.title') },
     { key: 'memory', icon: 'bulletpoint', label: t('memoryWorkspaceSettings.title') },
     { key: 'vectorstore', icon: 'data-base', label: t('settings.vectorStoreEngine') },
     { key: 'parser', icon: 'file-search', label: t('settings.parserEngine') },
@@ -400,7 +409,7 @@ const navGroups = computed<NavGroup[]>(() => {
     {
       key: 'workspace',
       label: t('settings.navGroups.workspace'),
-      items: pickItems(['tenant', 'members', 'chathistory', 'memory']),
+      items: pickItems(['tenant', 'members', 'chathistory', 'business-menus', 'memory']),
     },
     {
       key: 'models_runtime',
@@ -489,7 +498,7 @@ const handleClose = () => {
   if (route.path === '/platform/settings') {
     const sec = route.query.section
     if (sec === 'system-global' || sec === 'runtime-queues' || sec === 'platform-api-keys' || sec === 'system-audit-log') {
-      router.push('/platform/knowledge-bases')
+      router.push(PLATFORM_HOME)
     } else {
       router.back()
     }

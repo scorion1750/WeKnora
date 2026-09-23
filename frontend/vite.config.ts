@@ -52,6 +52,10 @@ const DEV_PROXY_TARGET =
   process.env.FRONTEND_BACKEND_URL ||
   'http://localhost:8080'
 
+const BIZ_PROXY_TARGET =
+  process.env.VITE_BIZ_PROXY_TARGET ||
+  'http://127.0.0.1:8090'
+
 function resolveVueOfficePptxEntry(): string {
   try {
     const pkgDir = dirname(require.resolve('@vue-office/pptx/package.json'))
@@ -140,6 +144,13 @@ export default defineConfig({
         timeout: 3_600_000,
         proxyTimeout: 3_600_000,
       },
+      '/biz/api': {
+        target: BIZ_PROXY_TARGET,
+        changeOrigin: true,
+        secure: false,
+        timeout: 180_000,
+        proxyTimeout: 180_000,
+      },
       '/api': {
         target: DEV_PROXY_TARGET,
         changeOrigin: true,
@@ -172,6 +183,13 @@ export default defineConfig({
         secure: false,
         timeout: 3_600_000,
         proxyTimeout: 3_600_000,
+      },
+      '/biz/api': {
+        target: BIZ_PROXY_TARGET,
+        changeOrigin: true,
+        secure: false,
+        timeout: 180_000,
+        proxyTimeout: 180_000,
       },
       '/api': {
         target: DEV_PROXY_TARGET,

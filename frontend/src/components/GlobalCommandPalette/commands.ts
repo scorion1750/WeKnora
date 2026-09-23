@@ -1,6 +1,7 @@
 import type { Router } from 'vue-router'
 import type { Composer } from 'vue-i18n'
 import { openNewUserGuide } from '@/config/contextualGuides'
+import { PLATFORM_HOME } from '@/business/constants'
 
 /**
  * A single command that can be searched and invoked from the palette.
@@ -41,6 +42,16 @@ export function buildCommands(ctx: CommandContext): CmdkCommand[] {
       run: () => {
         close()
         router.push('/platform/creatChat')
+      },
+    },
+    {
+      id: 'open-workbench',
+      label: t('menu.bizHome'),
+      icon: 'dashboard',
+      keywords: ['biz', 'workbench', '业务', '工作台'],
+      run: () => {
+        close()
+        router.push(PLATFORM_HOME)
       },
     },
     {

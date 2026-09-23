@@ -230,17 +230,39 @@ const DEFAULT_EXT_BY_KIND: Record<FilePreviewKind, string> = {
 
 const SNIFF_BYTES = 16384
 
-/** Strip a leading dot and lowercase. Prefers an explicit type over the filename suffix. */
+/**
+ * Strip a leading dot and lowercase.
+ * Prefers an explicit type over the filename suffix, but if `fileType` looks
+ * like a full filename (contains `.` and is not a known bare ext), extract
+ * the suffix so callers that accidentally pass `fileName` still preview.
+ */
 export function resolveFilePreviewExt(fileName?: string, fileType?: string): string {
-  const normalizedType = String(fileType || '')
-    .trim()
-    .replace(/^\./, '')
-    .toLowerCase()
-  if (normalizedType) return normalizedType
-  const name = String(fileName || '')
-  const dot = name.lastIndexOf('.')
-  if (dot < 0 || dot === name.length - 1) return ''
-  return name.slice(dot + 1).toLowerCase()
+  const fromName = (() => {
+    const name = String(fileName || '')
+    const dot = name.lastIndexOf('.')
+    if (dot < 0 || dot === name.length - 1) return ''
+    return name.slice(dot + 1).toLowerCase()
+  })()
+
+  const rawType = String(fileType || '').trim()
+  if (!rawType) return fromName
+
+  const normalizedType = rawType.replace(/^\./, '').toLowerCase()
+  // Bare extension: "docx", ".pdf"
+  if (!normalizedType.includes('/') && !normalizedType.includes('\\') && !normalizedType.includes('.')) {
+    return normalizedType
+  }
+  // MIME type: "application/pdf"
+  if (normalizedType.includes('/')) {
+    const mimeExt = Object.entries(MIME_BY_EXT).find(([, mime]) => mime === normalizedType)?.[0]
+    if (mimeExt) return mimeExt
+  }
+  // Filename mistaken for type: "report.docx" → "docx"
+  const dot = normalizedType.lastIndexOf('.')
+  if (dot >= 0 && dot < normalizedType.length - 1) {
+    return normalizedType.slice(dot + 1)
+  }
+  return fromName || normalizedType
 }
 
 export function resolvePreviewKind(ext: string): FilePreviewKind {

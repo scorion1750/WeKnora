@@ -266,6 +266,7 @@ onUnmounted(() => {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    background: #ffffff;
 }
 
 .upload-mask {

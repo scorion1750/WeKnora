@@ -7,6 +7,8 @@ import type { DeploymentCapabilityKey } from '@/config/deploymentCapabilities'
 import { MessagePlugin } from 'tdesign-vue-next'
 import i18n from '@/i18n'
 import { normalizeSettingsSection } from '@/config/settingsRoute'
+import { PLATFORM_HOME, businessFlagForPath, resolveBusinessLanding } from '@/business/constants'
+import { useBusinessMenuStore } from '@/stores/businessMenu'
 
 /** Lite /桌面 WebView 硬刷新时可能只打开 `/`，用 session 记住上次页面以便恢复 */
 const LITE_LAST_PATH_KEY = 'weknora_lite_last_path'
@@ -28,8 +30,10 @@ function isLiteSpaDefaultEntry(to: RouteLocationNormalized) {
   return (
     to.path === '/' ||
     to.path === '/platform' ||
+    to.path === '/platform/biz' ||
     to.path === '/platform/knowledge-bases' ||
-    to.name === 'knowledgeBaseList'
+    to.name === 'knowledgeBaseList' ||
+    to.name === 'businessHome'
   )
 }
 
@@ -48,7 +52,7 @@ const router = createRouter({
   routes: [
     {
       path: "/",
-      redirect: "/platform/knowledge-bases",
+      redirect: PLATFORM_HOME,
     },
     {
       path: "/login",
@@ -96,10 +100,34 @@ const router = createRouter({
     {
       path: "/platform",
       name: "Platform",
-      redirect: "/platform/knowledge-bases",
+      redirect: PLATFORM_HOME,
       component: () => import("../views/platform/index.vue"),
       meta: { requiresInit: true, requiresAuth: true },
       children: [
+        {
+          path: "biz",
+          name: "businessHome",
+          component: () => import("../business/views/BusinessHome.vue"),
+          meta: { requiresInit: true, requiresAuth: true }
+        },
+        {
+          path: "biz/office",
+          name: "businessOffice",
+          component: () => import("../business/views/office/OfficeWorkbench.vue"),
+          meta: { requiresInit: true, requiresAuth: true }
+        },
+        {
+          path: "biz/projects",
+          name: "businessProjects",
+          component: () => import("../business/views/project/ProjectWorkbench.vue"),
+          meta: { requiresInit: true, requiresAuth: true }
+        },
+        {
+          path: "biz/integration",
+          name: "businessIntegration",
+          component: () => import("../business/views/integration/IntegrationWorkbench.vue"),
+          meta: { requiresInit: true, requiresAuth: true }
+        },
         {
           path: "tenant",
           redirect: "/platform/settings"
@@ -347,7 +375,7 @@ router.beforeEach(async (to, from, next) => {
       }
     }
     if (authStore.hasValidTenant) {
-      next('/platform/knowledge-bases')
+      next(PLATFORM_HOME)
     } else {
       next()
     }
@@ -356,9 +384,9 @@ router.beforeEach(async (to, from, next) => {
 
   // 如果访问的是登录页面或初始化页面，直接放行
   if (to.meta.requiresAuth === false || to.meta.requiresInit === false) {
-    // 如果已登录用户访问登录页面，重定向到知识库列表页面
+    // 如果已登录用户访问登录页面，重定向到业务工作台
     if (to.path === '/login' && authStore.isLoggedIn) {
-      next(authStore.hasValidTenant ? '/platform/knowledge-bases' : '/onboarding/workspace')
+      next(authStore.hasValidTenant ? PLATFORM_HOME : '/onboarding/workspace')
       return
     }
     next()
@@ -411,7 +439,7 @@ router.beforeEach(async (to, from, next) => {
   const requiredCapability = to.meta.requiredCapability as DeploymentCapabilityKey | undefined
   if (requiredCapability && !deploymentCapabilities.isSupported(requiredCapability)) {
     MessagePlugin.warning(i18n.global.t('settings.capabilityUnavailable'))
-    next('/platform/knowledge-bases')
+    next(PLATFORM_HOME)
     return
   }
 
@@ -421,7 +449,20 @@ router.beforeEach(async (to, from, next) => {
   // the bounce. This is UI-only; the server enforces the real check.
   if (to.meta.requiresSystemAdmin === true) {
     if (!authStore.isSystemAdmin) {
-      next('/platform/knowledge-bases')
+      next(PLATFORM_HOME)
+      return
+    }
+  }
+
+  // Business module menus are tenant-configurable (Settings → 业务菜单).
+  const businessMenu = useBusinessMenuStore()
+  if (authStore.isLoggedIn && authStore.hasValidTenant) {
+    if (!businessMenu.loaded) {
+      await businessMenu.load()
+    }
+    const flag = businessFlagForPath(to.path)
+    if (flag && !businessMenu.flags[flag]) {
+      next(resolveBusinessLanding(businessMenu.flags))
       return
     }
   }

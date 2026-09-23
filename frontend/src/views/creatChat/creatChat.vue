@@ -248,10 +248,13 @@ const handleKBEditorSuccess = (kbId: string) => {
 <style lang="less" scoped>
 .dialogue-wrap {
     flex: 1;
+    align-self: stretch;
+    width: 100%;
+    min-height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    // position: relative;
+    background: #ffffff;
 }
 
 .dialogue-answers {

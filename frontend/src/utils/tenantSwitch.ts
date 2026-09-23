@@ -7,8 +7,9 @@
 // 用一次 full navigation 把所有 store / SSE / 请求都重置一遍。
 
 import { updateMyPreferences } from '@/api/auth'
+import { PLATFORM_HOME } from '@/business/constants'
 
-const SAFE_FALLBACK_PATH = '/platform/knowledge-bases'
+const SAFE_FALLBACK_PATH = PLATFORM_HOME
 
 /**
  * Return the URL to navigate to after a tenant switch. 目前始终返回 KB 列表

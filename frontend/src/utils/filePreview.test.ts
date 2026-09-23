@@ -18,6 +18,19 @@ test('resolveFilePreviewExt prefers explicit type and strips a leading dot', () 
   assert.equal(resolveFilePreviewExt('noext', ''), '')
 })
 
+test('resolveFilePreviewExt recovers when fileType is a full filename or MIME', () => {
+  assert.equal(resolveFilePreviewExt('ignored.bin', '报告.docx'), 'docx')
+  assert.equal(resolveFilePreviewExt('report.docx', 'report.docx'), 'docx')
+  assert.equal(
+    resolveFilePreviewExt(
+      'x.bin',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ),
+    'docx',
+  )
+  assert.equal(resolveFilePreviewExt('notes.pdf', 'application/pdf'), 'pdf')
+})
+
 test('resolvePreviewKind covers office, tables, html, media, and code', () => {
   assert.equal(resolvePreviewKind('html'), 'html')
   assert.equal(resolvePreviewKind('htm'), 'html')

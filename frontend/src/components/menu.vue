@@ -2,8 +2,8 @@
     <div class="aside_box" :class="{ 'aside_box--collapsed': uiStore.sidebarCollapsed, 'aside_box--resizing': uiStore.sidebarResizing }">
         <!-- 展开时：Logo + 搜索/折叠按钮同行 -->
         <div class="logo_row" v-if="!uiStore.sidebarCollapsed">
-            <div class="logo_box" @click="router.push('/platform/knowledge-bases')" style="cursor: pointer;">
-                <img class="logo" src="@/assets/img/weknora.png" alt="">
+            <div class="logo_box" @click="router.push(PLATFORM_HOME)" style="cursor: pointer;">
+                <span class="logo" aria-label="RAG">RAG</span>
                 <sup v-if="isLiteEdition" class="lite-badge">Lite</sup>
             </div>
             <div class="logo_actions">
@@ -87,7 +87,7 @@
                         <div class="menu_item-box">
                             <div class="menu_icon">
                                 <img class="icon"
-                                    :src="getImgSrc(item.icon == 'zhishiku' ? knowledgeIcon : item.icon == 'agent' ? agentIcon : item.icon == 'artifact' ? artifactIcon : item.icon == 'organization' ? organizationIcon : item.icon == 'logout' ? logoutIcon : item.icon == 'setting' ? settingIcon : prefixIcon)"
+                                    :src="getImgSrc(resolveMenuIcon(item.icon))"
                                     alt="">
                             </div>
                             <template v-if="!uiStore.sidebarCollapsed">
@@ -100,10 +100,25 @@
                         </div>
                     </div>
                 </t-tooltip>
+                <!-- RAG 静态子菜单：知识库 / 新对话 / 智能体 / 产物 -->
+                <div
+                    v-if="!uiStore.sidebarCollapsed && item.subMenus?.length && isMenuItemActive(item.path)"
+                    class="rag-submenus"
+                >
+                    <div
+                        v-for="sub in visibleSubMenus(item)"
+                        :key="sub.path"
+                        class="rag-submenu-item"
+                        :class="{ active: isSubMenuActive(sub.path) }"
+                        @click.stop="handleMenuClick(sub.path)"
+                    >
+                        <span>{{ sub.title }}</span>
+                    </div>
+                </div>
             </div>
 
-            <!-- 历史会话：按来源筛选后统一按日期分组展示 -->
-            <div class="submenu" v-if="!uiStore.sidebarCollapsed">
+            <!-- 历史会话：仅在 RAG 相关页面展示，避免业务页被会话列表占满 -->
+            <div class="submenu" v-if="!uiStore.sidebarCollapsed && isMenuItemActive('rag')">
                 <!-- Stable, always-mounted source filter: reserving its row here
                      (instead of embedding it in the first date group, which
                      appears/disappears while a bucket loads) prevents the
@@ -263,6 +278,7 @@ import UserMenu from '@/components/UserMenu.vue';
 import TenantSelector from '@/components/TenantSelector.vue';
 import { useI18n } from 'vue-i18n';
 import { getSystemInfo } from '@/api/system';
+import { PLATFORM_HOME } from '@/business/constants';
 
 const chatResources = useChatResourcesStore();
 // Platform logos reused from IMChannelsOverviewPanel — keeps the session list
@@ -347,7 +363,14 @@ const activeBucket = computed(() => sessionBuckets.value[activeSessionBucketKey.
 const hasAnySession = computed(() =>
     Object.values(sessionBuckets.value).some((bucket) => bucket.items.length > 0),
 );
-type MenuItem = { title: string; icon: string; path: string; childrenPath?: string; children?: any[] };
+type MenuItem = {
+    title: string
+    icon: string
+    path: string
+    childrenPath?: string
+    children?: any[]
+    subMenus?: { title: string; titleKey: string; path: string; icon?: string; requiredCapability?: string }[]
+}
 const { menuArr, visibleMenuArr } = storeToRefs(usemenuStore);
 let activeSubmenu = ref<string>('');
 const isLiteEdition = ref(false);
@@ -358,7 +381,7 @@ const batchSelectedIds = ref<string[]>([])
 const batchDeleting = ref(false)
 
 const allSessionIds = computed(() => {
-    const chatMenu = (menuArr.value as unknown as MenuItem[]).find((item: MenuItem) => item.path === 'creatChat');
+    const chatMenu = (menuArr.value as unknown as MenuItem[]).find((item: MenuItem) => item.path === 'creatChat' || item.path === 'rag');
     if (!chatMenu?.children) return [];
     return (chatMenu.children as any[]).map((s: any) => s.id);
 })
@@ -409,6 +432,23 @@ const isMenuItemActive = (itemPath: string): boolean => {
     const currentRoute = route.name;
 
     switch (itemPath) {
+        case 'biz':
+            return currentRoute === 'businessHome';
+        case 'biz/office':
+            return currentRoute === 'businessOffice';
+        case 'biz/projects':
+            return currentRoute === 'businessProjects';
+        case 'biz/integration':
+            return currentRoute === 'businessIntegration';
+        case 'rag':
+            return currentRoute === 'knowledgeBaseList' ||
+                currentRoute === 'knowledgeBaseDetail' ||
+                currentRoute === 'knowledgeBaseSettings' ||
+                currentRoute === 'agentList' ||
+                currentRoute === 'artifactLibrary' ||
+                currentRoute === 'kbCreatChat' ||
+                currentRoute === 'globalCreatChat' ||
+                currentRoute === 'chat';
         case 'knowledge-bases':
             return currentRoute === 'knowledgeBaseList' ||
                 currentRoute === 'knowledgeBaseDetail' ||
@@ -428,6 +468,16 @@ const isMenuItemActive = (itemPath: string): boolean => {
     }
 };
 
+const visibleSubMenus = (item: MenuItem) => {
+    return (item.subMenus || []).filter((sub) =>
+        deploymentCapabilities.isSupported(sub.requiredCapability as any)
+    )
+}
+
+const isSubMenuActive = (subPath: string): boolean => {
+    return isMenuItemActive(subPath)
+}
+
 // 统一的图标激活状态判断
 const getIconActiveState = (itemPath: string) => {
     const currentRoute = route.name;
@@ -445,7 +495,7 @@ const getIconActiveState = (itemPath: string) => {
 };
 
 // 分离上下两部分菜单（使用 visibleMenuArr 以便 lite 模式过滤 logout）
-const TOP_MENU_PATHS = new Set(['creatChat', 'knowledge-bases', 'artifacts', 'agents', 'organizations']);
+const TOP_MENU_PATHS = new Set(['biz', 'biz/office', 'biz/projects', 'biz/integration', 'rag', 'creatChat', 'knowledge-bases', 'artifacts', 'agents', 'organizations']);
 
 const topMenuItems = computed<MenuItem[]>(() => {
     return (visibleMenuArr.value as unknown as MenuItem[]).filter((item: MenuItem) => TOP_MENU_PATHS.has(item.path));
@@ -776,7 +826,7 @@ const ensureSessionInSidebar = (sessionId: string) => {
     const web = sessionBuckets.value.web;
     if (!web) return;
 
-    const chatMenu = (menuArr.value as unknown as MenuItem[]).find((item) => item.path === 'creatChat');
+    const chatMenu = (menuArr.value as unknown as MenuItem[]).find((item) => item.path === 'creatChat' || item.path === 'rag');
     const fromStore = (chatMenu?.children as Record<string, unknown>[] | undefined)
         ?.find((item) => item.id === sessionId);
     if (!fromStore) return;
@@ -873,7 +923,7 @@ const syncActiveBucketFromChat = async (sessionId: string | undefined) => {
 
     let bucketKey = findSessionBucketKey(sessionBuckets.value, sessionId);
     if (!bucketKey) {
-        const chatMenu = (menuArr.value as unknown as MenuItem[]).find((item) => item.path === 'creatChat');
+        const chatMenu = (menuArr.value as unknown as MenuItem[]).find((item) => item.path === 'creatChat' || item.path === 'rag');
         const fromStore = (chatMenu?.children as Record<string, unknown>[] | undefined)
             ?.find((item) => item.id === sessionId);
         if (fromStore) {
@@ -1081,48 +1131,64 @@ watch([() => route.name, () => route.params], (newvalue, oldvalue) => {
         loadCurrentKbInfo((newvalue[1] as any)?.kbId as string);
     }
 });
-let knowledgeIcon = ref('zhishiku-green.svg');
+let knowledgeIcon = ref('zhishiku.svg');
 let prefixIcon = ref('prefixIcon.svg');
 let logoutIcon = ref('logout.svg');
 let settingIcon = ref('setting.svg');
 let agentIcon = ref('agent.svg');
 let artifactIcon = ref('artifact.svg');
 let organizationIcon = ref('organization.svg');
+let fileAddIcon = ref('file-add.svg');
+let integrationIcon = ref('integration.svg');
 let pathPrefix = ref(route.name)
-const getIcon = (path: string) => {
-    // 根据当前路由状态更新所有图标
+
+const resolveMenuIcon = (icon: string) => {
+    switch (icon) {
+        case 'zhishiku': return knowledgeIcon.value;
+        case 'agent': return agentIcon.value;
+        case 'artifact': return artifactIcon.value;
+        case 'organization': return organizationIcon.value;
+        case 'logout': return logoutIcon.value;
+        case 'setting': return settingIcon.value;
+        case 'file-add': return fileAddIcon.value;
+        case 'integration': return integrationIcon.value;
+        case 'prefixIcon': return prefixIcon.value;
+        default: return prefixIcon.value;
+    }
+}
+
+const getIcon = (_path: string) => {
     const kbActiveState = getIconActiveState('knowledge-bases');
     const creatChatActiveState = getIconActiveState('creatChat');
     const settingsActiveState = getIconActiveState('settings');
     const agentsActiveState = route.name === 'agentList';
     const artifactsActiveState = route.name === 'artifactLibrary';
     const organizationsActiveState = route.name === 'organizationList';
+    const bizHomeActive = route.name === 'businessHome';
+    const officeActive = route.name === 'businessOffice';
+    const projectActive = route.name === 'businessProjects';
+    const integrationActive = route.name === 'businessIntegration';
+    const ragActive = isMenuItemActive('rag');
 
-    // 知识库图标：只在知识库页面显示绿色
-    knowledgeIcon.value = kbActiveState.isKbActive ? 'zhishiku-green.svg' : 'zhishiku.svg';
-
-    // 智能体图标：只在智能体页面显示绿色
+    knowledgeIcon.value = (kbActiveState.isKbActive || bizHomeActive) ? 'zhishiku-green.svg' : 'zhishiku.svg';
     agentIcon.value = agentsActiveState ? 'agent-green.svg' : 'agent.svg';
-
-    // 产物图标：只在产物页面显示绿色
     artifactIcon.value = artifactsActiveState ? 'artifact-green.svg' : 'artifact.svg';
-
-    // 组织图标：只在组织页面显示绿色
-    organizationIcon.value = organizationsActiveState ? 'organization-green.svg' : 'organization.svg';
-
-    // 对话图标：只在对话创建页面显示绿色，其他情况显示默认
-    prefixIcon.value = creatChatActiveState.isCreatChatActive ? 'prefixIcon-green.svg' : 'prefixIcon.svg';
-
-    // 设置图标：只在设置页面显示绿色
+    organizationIcon.value = (organizationsActiveState || projectActive) ? 'organization-green.svg' : 'organization.svg';
+    prefixIcon.value = (creatChatActiveState.isCreatChatActive || ragActive) ? 'prefixIcon-green.svg' : 'prefixIcon.svg';
     settingIcon.value = settingsActiveState.isSettingsActive ? 'setting-green.svg' : 'setting.svg';
-
-    // 退出图标：始终显示默认
+    fileAddIcon.value = officeActive ? 'file-add-green.svg' : 'file-add.svg';
+    integrationIcon.value = integrationActive ? 'integration-green.svg' : 'integration.svg';
     logoutIcon.value = 'logout.svg';
 }
 getIcon(typeof route.name === 'string' ? route.name as string : (route.name ? String(route.name) : ''))
 const handleMenuClick = async (path: string) => {
-    if (path === 'knowledge-bases') {
-        // 知识库菜单项：如果在知识库内部，跳转到当前知识库文件页；否则跳转到知识库列表
+    if (path === 'biz') {
+        router.push(PLATFORM_HOME)
+    } else if (path === 'biz/office' || path === 'biz/projects' || path === 'biz/integration') {
+        router.push(`/platform/${path}`)
+    } else if (path === 'rag') {
+        router.push('/platform/knowledge-bases')
+    } else if (path === 'knowledge-bases') {
         const kbId = await getCurrentKbId()
         if (kbId) {
             router.push(`/platform/knowledge-bases/${kbId}`)
@@ -1132,10 +1198,8 @@ const handleMenuClick = async (path: string) => {
     } else if (path === 'agents') {
         router.push('/platform/agents')
     } else if (path === 'organizations') {
-        // 组织菜单项：跳转到组织列表
         router.push('/platform/organizations')
     } else if (path === 'settings') {
-        // 设置菜单项：打开设置弹窗并跳转路由
         uiStore.openSettings()
         router.push('/platform/settings')
     } else {
@@ -1317,8 +1381,14 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
         overflow: hidden;
 
         .logo {
-            width: 128px;
+            width: auto;
             height: auto;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--td-brand-color);
+            letter-spacing: 0.04em;
+            user-select: none;
+            line-height: 1.2;
         }
 
         .lite-badge {
@@ -1330,6 +1400,30 @@ const resizeSidebar = (delta: number, keyboard: boolean) => {
             color: var(--td-text-color-placeholder);
             user-select: none;
             white-space: nowrap;
+        }
+    }
+
+    .rag-submenus {
+        margin: 2px 0 8px 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .rag-submenu-item {
+        padding: 6px 10px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: var(--td-text-color-secondary);
+        cursor: pointer;
+        &:hover {
+            background: var(--td-bg-color-container-hover);
+            color: var(--td-text-color-primary);
+        }
+        &.active {
+            color: var(--td-brand-color);
+            background: color-mix(in srgb, var(--td-brand-color) 10%, transparent);
+            font-weight: 600;
         }
     }
 

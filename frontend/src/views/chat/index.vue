@@ -1756,6 +1756,7 @@ onBeforeRouteUpdate((to, from, next) => {
     align-items: center;
     max-width: 100%;
     min-width: 400px;
+    background: #ffffff;
 
     &.is-embedded {
         max-width: 100%;
